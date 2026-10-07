@@ -1,0 +1,6 @@
+{
+  "name": "Lion City Spatial Intelligence",
+  "description": "Institutional spatial analytics, URA planning intelligence, and Grade-A commercial asset yield matrix for the Singapore commercial corridor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
