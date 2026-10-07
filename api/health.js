@@ -1,19 +1,17 @@
-import express from 'express';
-
-const router = express.Router();
-
 /**
- * Health check handler to monitor server status and external OneMap API connectivity
+ * Vercel Serverless Function & Express compatible Health Check API
+ * Endpoint: /api/health
  */
+
 export async function checkHealth(includeExternal = false) {
   const startTime = Date.now();
-  const memory = process.memoryUsage();
+  const memory = process.memoryUsage ? process.memoryUsage() : { rss: 0, heapTotal: 0, heapUsed: 0 };
 
   const healthReport = {
     status: 'HEALTHY',
     service: 'Lion City Spatial Intelligence API Gateway',
     timestamp: new Date().toISOString(),
-    uptimeSeconds: Math.floor(process.uptime()),
+    uptimeSeconds: Math.floor(process.uptime ? process.uptime() : 0),
     system: {
       nodeVersion: process.version,
       platform: process.platform,
@@ -42,7 +40,7 @@ export async function checkHealth(includeExternal = false) {
       const searchStart = Date.now();
       const searchRes = await fetch(
         'https://www.onemap.gov.sg/api/common/elastic/search?searchVal=raffles%20place&returnGeom=Y&getAddrDetails=Y&pageNum=1',
-        { method: 'GET', signal: AbortSignal.timeout(5000) }
+        { method: 'GET', signal: AbortSignal.timeout(3500) }
       );
       const searchLatency = Date.now() - searchStart;
 
@@ -56,7 +54,7 @@ export async function checkHealth(includeExternal = false) {
       healthReport.onemapStatus.probes.search = {
         target: 'https://www.onemap.gov.sg/api/common/elastic/search',
         reachable: false,
-        error: err.message
+        error: err.message || 'Timeout/Network Error'
       };
     }
 
@@ -65,7 +63,7 @@ export async function checkHealth(includeExternal = false) {
       const revStart = Date.now();
       const revRes = await fetch(
         'https://www.onemap.gov.sg/api/public/revgeocode?location=1.3,103.8&buffer=40&addressType=All',
-        { method: 'GET', signal: AbortSignal.timeout(5000) }
+        { method: 'GET', signal: AbortSignal.timeout(3500) }
       );
       const revLatency = Date.now() - revStart;
 
@@ -79,7 +77,7 @@ export async function checkHealth(includeExternal = false) {
       healthReport.onemapStatus.probes.revgeocode = {
         target: 'https://www.onemap.gov.sg/api/public/revgeocode',
         reachable: false,
-        error: err.message
+        error: err.message || 'Timeout/Network Error'
       };
     }
 
@@ -88,7 +86,7 @@ export async function checkHealth(includeExternal = false) {
       const tokenStart = Date.now();
       const tokenRes = await fetch(
         'https://www.onemap.gov.sg/api/auth/post/getToken',
-        { method: 'GET', signal: AbortSignal.timeout(5000) }
+        { method: 'GET', signal: AbortSignal.timeout(3500) }
       );
       const tokenLatency = Date.now() - tokenStart;
 
@@ -102,7 +100,7 @@ export async function checkHealth(includeExternal = false) {
       healthReport.onemapStatus.probes.token = {
         target: 'https://www.onemap.gov.sg/api/auth/post/getToken',
         reachable: false,
-        error: err.message
+        error: err.message || 'Timeout/Network Error'
       };
     }
 
@@ -113,21 +111,52 @@ export async function checkHealth(includeExternal = false) {
   return healthReport;
 }
 
-// Route handlers
-router.get('/', async (req, res) => {
-  const checkExternal = req.query.external !== 'false';
-  try {
-    const report = await checkHealth(checkExternal);
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.status(200).json(report);
-  } catch (error) {
-    res.status(500).json({
-      status: 'DEGRADED',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
+/**
+ * Standard Vercel Serverless Function & Express handler
+ */
+export default async function handler(req, res) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-// Standalone handler export
-export default router;
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    return res.end();
+  }
+
+  try {
+    let checkExternal = false;
+    if (req.query && req.query.external !== undefined) {
+      checkExternal = req.query.external !== 'false';
+    } else if (req.url && req.url.includes('external=true')) {
+      checkExternal = true;
+    }
+
+    const report = await checkHealth(checkExternal);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(200).json(report);
+    } else {
+      res.statusCode = 200;
+      return res.end(JSON.stringify(report));
+    }
+  } catch (error) {
+    const errorPayload = {
+      status: 'DEGRADED',
+      error: error.message || String(error),
+      timestamp: new Date().toISOString()
+    };
+
+    if (typeof res.status === 'function' && typeof res.json === 'function') {
+      return res.status(500).json(errorPayload);
+    } else {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(JSON.stringify(errorPayload));
+    }
+  }
+}

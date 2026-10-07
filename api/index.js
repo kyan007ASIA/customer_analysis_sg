@@ -1,16 +1,30 @@
-import express from 'express';
-import healthRouter from './health.js';
-import onemapRouter from './onemap.js';
+import healthHandler from './health.js';
+import onemapHandler from './onemap.js';
 
-const router = express.Router();
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-router.use('/health', healthRouter);
-router.use('/onemap', onemapRouter);
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    return res.end();
+  }
 
-router.get('/', (req, res) => {
-  res.json({
+  const url = new URL(req.url, `http://${req.headers?.host || 'localhost'}`);
+  const pathname = url.pathname;
+
+  if (pathname.includes('/health')) {
+    return healthHandler(req, res);
+  }
+
+  if (pathname.includes('/onemap')) {
+    return onemapHandler(req, res);
+  }
+
+  const payload = {
     status: 'ACTIVE',
-    service: 'Lion City Spatial Intelligence API Registry',
+    service: 'Lion City Spatial Intelligence API Gateway',
     version: '1.0.0',
     availableEndpoints: [
       {
@@ -34,7 +48,13 @@ router.get('/', (req, res) => {
         description: 'OneMap Reverse Geocoding service'
       }
     ]
-  });
-});
+  };
 
-export default router;
+  res.setHeader('Content-Type', 'application/json');
+  if (typeof res.status === 'function' && typeof res.json === 'function') {
+    return res.status(200).json(payload);
+  } else {
+    res.statusCode = 200;
+    return res.end(JSON.stringify(payload));
+  }
+}

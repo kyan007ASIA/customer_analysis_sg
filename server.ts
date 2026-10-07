@@ -2,7 +2,12 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import apiRouter from './api/index.js';
+import healthHandler from './api/health.js';
+import onemapHandler from './api/onemap.js';
+import onemapSearchHandler from './api/onemap/search.js';
+import onemapTokenHandler from './api/onemap/token.js';
+import onemapRevgeocodeHandler from './api/onemap/revgeocode.js';
+import apiIndexHandler from './api/index.js';
 
 dotenv.config();
 
@@ -14,15 +19,16 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
-// API endpoints under /api folder
-app.use('/api', apiRouter);
+// API endpoints mounted using serverless-compatible handlers
+app.all('/api/health', (req, res) => healthHandler(req, res));
+app.all('/api/health.js', (req, res) => healthHandler(req, res));
+app.all('/api/onemap/search', (req, res) => onemapSearchHandler(req, res));
+app.all('/api/onemap/token', (req, res) => onemapTokenHandler(req, res));
+app.all('/api/onemap/revgeocode', (req, res) => onemapRevgeocodeHandler(req, res));
+app.all('/api/onemap', (req, res) => onemapHandler(req, res));
+app.all('/api', (req, res) => apiIndexHandler(req, res));
 
-// Fallback for direct script query /api/health.js
-app.get('/api/health.js', (req, res) => {
-  res.redirect('/api/health');
-});
-
-// Vite middleware integration
+// Vite middleware integration in dev, static files in production
 const isProduction = process.env.NODE_ENV === 'production';
 if (!isProduction) {
   const { createServer: createViteServer } = await import('vite');

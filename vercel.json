@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/api/onemap/search",
+      "destination": "/api/onemap/search"
+    },
+    {
+      "source": "/api/onemap/token",
+      "destination": "/api/onemap/token"
+    },
+    {
+      "source": "/api/onemap/revgeocode",
+      "destination": "/api/onemap/revgeocode"
+    },
+    {
+      "source": "/api/onemap",
+      "destination": "/api/onemap"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
