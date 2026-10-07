@@ -3,7 +3,7 @@ import express from 'express';
 const router = express.Router();
 
 // In-memory token cache if user sets or acquires a token
-let cachedToken = process.env.ONEMAP_API_TOKEN || null;
+let cachedToken = process.env.ONE_MAP_API_KEY || process.env.ONEMAP_API_TOKEN || null;
 let tokenExpiry = null;
 
 /**
